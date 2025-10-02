@@ -12,7 +12,6 @@ export function ActionPanel({ request, onSubmit }: ActionPanelProps) {
   const [selected, setSelected] = useState<string | undefined>();
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
   useEffect(() => {
     setSelected(undefined);
     setText('');

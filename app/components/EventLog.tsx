@@ -48,3 +48,4 @@ export function EventLog({ logs }: EventLogProps) {
     </section>
   );
 }
+

@@ -6,15 +6,19 @@
 
 # 狼人殺 AI 展示網站
 
+
 歡迎使用狼人殺 AI 模擬器展示網站！本專案將原始於 Jupyter Notebook 的狼人殺 AI 遊戲邏輯移植到 Next.js，提供即時的遊戲流程展示、AI 決策日誌與真人玩家參與，並透過 LLM 生成沉浸式劇情發言。
+
 
 ## 功能特色
 
 - ⚙️ **彈性設定**：自訂玩家人數、職業配置與 AI 策略參數。
 - 🧠 **AI 對局引擎**：完整模擬白天、夜晚、投票等流程，並記錄事件日誌。
 - 🙋 **真人參與**：支援指定至少一位真人玩家即時操作，保留擴充多位真人的彈性。
+
 - 🎭 **LLM 劇場**：串接 OpenAI Chat Completions API，為 AI 玩家生成中文發言與投票理由；未設定金鑰時會退回到離線台詞模板。
 - 🖥️ **沉浸式 UI**：卡通風格角色卡、場景橫幅與事件時間線，隨回合變換氛圍並保護真人玩家視角不洩漏他人身份。
+
 
 ## 安裝與設定
 
@@ -23,6 +27,7 @@
    npm install
    ```
    > 若在受限環境中遭遇 403 Forbidden，可改用本地端或重新設定代理再執行。
+
 
 2. 建立 `.env.local` 並設定 OpenAI 金鑰與（選填）模型：
    ```bash
@@ -36,7 +41,9 @@
    npm run dev
    ```
 
+
 4. 於瀏覽器開啟 `http://localhost:3000` 即可進入展示網站。
+
 
 ## 使用方式
 
@@ -45,6 +52,7 @@
 3. 點擊 **Start Game** 啟動對局，場景橫幅與控制卡會即時顯示當前階段。
 4. 當輪到真人行動時，畫面會彈出操作請求，依提示選擇行動即可繼續。
 5. AI 角色發言與投票時會呼叫 LLM 生成台詞並記錄於 **Event Log**；亦可回溯整體劇情時間線。
+
 
 ## 專案結構
 
@@ -57,13 +65,16 @@
 - 支援多位真人玩家與更多角色配置。
 - 加入戰局回放與策略分析視覺化。
 - 改善行動策略以提升 AI 智慧。
+
 </div>
 
 <div id="lang-en" style="display: none;">
 
 # Werewolf AI Demo Site
 
+
 Welcome to the Werewolf AI simulator demo! This project ports the original Jupyter Notebook Werewolf AI logic into a Next.js web experience with real-time game flow visualisation, AI decision logs, optional human participation, and LLM-driven storytelling.
+
 
 ## Key Features
 
@@ -73,6 +84,7 @@ Welcome to the Werewolf AI simulator demo! This project ports the original Jupyt
 - 🎭 **LLM theatre**: Connects to the OpenAI Chat Completions API to craft dramatic speeches and vote rationales; without a key the engine falls back to offline templates.
 - 🖥️ **Immersive UI**: Cartoon avatars, cinematic scene banners, and a story timeline keep the atmosphere lively while hiding secret roles from human players.
 
+
 ## Installation & Setup
 
 1. Install dependencies:
@@ -80,6 +92,7 @@ Welcome to the Werewolf AI simulator demo! This project ports the original Jupyt
    npm install
    ```
    > If you encounter a 403 Forbidden in restricted environments, try running locally or configuring a proxy before retrying.
+
 
 2. Create `.env.local` with your OpenAI credentials (model optional):
    ```bash
@@ -93,6 +106,7 @@ Welcome to the Werewolf AI simulator demo! This project ports the original Jupyt
    npm run dev
    ```
 
+
 4. Open `http://localhost:3000` in your browser to explore the demo.
 
 ## How to Play
@@ -102,6 +116,7 @@ Welcome to the Werewolf AI simulator demo! This project ports the original Jupyt
 3. Click **Start Game** to launch the match. The hero banner and control deck reflect the current phase in real time.
 4. When it's time for the human to act, a prompt appears with available actions—follow the instructions to continue.
 5. During AI speeches and votes the LLM produces dialogue that is logged in the **Event Log**, making it easy to review the full story timeline.
+
 
 ## Project Structure
 
@@ -114,6 +129,7 @@ Welcome to the Werewolf AI simulator demo! This project ports the original Jupyt
 - Support multiple human players and additional role packs.
 - Add replay and strategy visualisation tools.
 - Enhance AI heuristics for smarter decisions.
+
 </div>
 
 <script>

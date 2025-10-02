@@ -93,6 +93,7 @@ export default function HomePage() {
     }
   }, [snapshot]);
 
+
   const scene = useMemo(() => {
     switch (snapshot.phase) {
       case 'night':
@@ -189,7 +190,6 @@ export default function HomePage() {
           {activeRequest && <ActionPanel request={activeRequest} onSubmit={handleSubmitAction} />}
         </section>
       </div>
-
       {snapshot.players.length > 0 && <PlayerBoard players={snapshot.players} />}
 
       <EventLog logs={snapshot.logs} />
