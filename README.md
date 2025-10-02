@@ -1,12 +1,14 @@
-<div align="right">
+<!-- <div align="right">
   <button id="toggle-lang" type="button">Switch to English</button>
-</div>
+</div> -->
 
 <div id="lang-zh" style="display: block;">
 
 # 狼人殺 AI 展示網站
 
 歡迎使用狼人殺 AI 模擬器展示網站！本專案將原始於 Jupyter Notebook 的狼人殺 AI 遊戲邏輯移植到 Next.js，提供即時的遊戲流程展示、AI 決策日誌以及真人玩家參與的示範。
+<img width="1509" height="1274" alt="image" src="https://github.com/user-attachments/assets/28589ca5-8326-407b-95b1-bc8e27cfbe6e" />
+
 
 ## 功能特色
 
