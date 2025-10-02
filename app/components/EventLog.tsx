@@ -6,41 +6,46 @@ interface EventLogProps {
   logs: LogEntry[];
 }
 
+const PHASE_BADGE: Record<string, string> = {
+  night: '🌙',
+  'day-discussion': '☀️',
+  'day-vote': '🗳️',
+  'game-over': '🏁',
+  idle: '✨'
+};
+
+const PHASE_LABEL: Record<string, string> = {
+  night: '夜晚行動',
+  'day-discussion': '白天討論',
+  'day-vote': '白天投票',
+  'game-over': '遊戲結束',
+  idle: '準備階段'
+};
+
 export function EventLog({ logs }: EventLogProps) {
   return (
-    <section className="fade-card" aria-labelledby="log-title">
-      <h2 id="log-title" className="card-title">
-        遊戲日誌
-      </h2>
-      <p className="muted" style={{ marginBottom: 16 }}>
-        即時顯示夜晚、白天以及各角色的動態，協助理解 AI 的決策流程與遊戲走向。
-      </p>
+    <section className="story-section" aria-labelledby="log-title">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">實況紀錄</p>
+          <h2 id="log-title">劇情時間線</h2>
+        </div>
+      </div>
       <div className="log-container">
-        {logs.length === 0 && <p className="muted">目前尚無日誌，請開始對局。</p>}
+        {logs.length === 0 && <p className="muted">目前尚無日誌，點擊開始即可開場。</p>}
         {logs.map((log) => (
-          <div key={log.id} className="log-entry">
-            <strong>
-              第 {log.day} 天 · {translatePhase(log.phase)}
-            </strong>
-            <div>{log.message}</div>
-          </div>
+          <article key={log.id} className="log-entry">
+            <span className="log-badge">{PHASE_BADGE[log.phase] ?? '✨'}</span>
+            <div>
+              <p className="log-title">
+                第 {log.day} 天 · {PHASE_LABEL[log.phase] ?? PHASE_LABEL.idle}
+              </p>
+              <p className="log-message">{log.message}</p>
+            </div>
+          </article>
         ))}
       </div>
     </section>
   );
 }
 
-function translatePhase(phase: string) {
-  switch (phase) {
-    case 'night':
-      return '夜晚';
-    case 'day-discussion':
-      return '白天討論';
-    case 'day-vote':
-      return '白天投票';
-    case 'game-over':
-      return '遊戲結束';
-    default:
-      return '準備階段';
-  }
-}

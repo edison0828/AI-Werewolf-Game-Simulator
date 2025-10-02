@@ -53,23 +53,23 @@ export default function HomePage() {
     setAutoRunning(false);
   };
 
-  const progressOnce = () => {
-    const snap = engineRef.current.progress();
+  const progressOnce = async () => {
+    const snap = await engineRef.current.progress();
     setSnapshot({ ...snap });
   };
 
-  const progressAuto = () => {
+  const progressAuto = async () => {
     setAutoRunning(true);
-    let current = engineRef.current.progress();
-    while (!current.pendingRequest && current.phase !== 'game-over') {
-      current = engineRef.current.progress();
-    }
-    setSnapshot({ ...current });
+    let current = snapshot;
+    do {
+      current = await engineRef.current.progress();
+      setSnapshot({ ...current });
+    } while (!current.pendingRequest && current.phase !== 'game-over');
     setAutoRunning(false);
   };
 
-  const handleSubmitAction = (payload: SubmitHumanActionPayload) => {
-    const snap = engineRef.current.submitHumanAction(payload);
+  const handleSubmitAction = async (payload: SubmitHumanActionPayload) => {
+    const snap = await engineRef.current.submitHumanAction(payload);
     setSnapshot({ ...snap });
   };
 
@@ -93,69 +93,103 @@ export default function HomePage() {
     }
   }, [snapshot]);
 
+
+  const scene = useMemo(() => {
+    switch (snapshot.phase) {
+      case 'night':
+        return {
+          image: '/assets/scenes/night.svg',
+          title: '月色籠罩整座村莊',
+          description: '狼人悄然行動，AI 正在夜間決策。'
+        };
+      case 'day-discussion':
+        return {
+          image: '/assets/scenes/day.svg',
+          title: '陽光下的集會',
+          description: '村民圍坐廣場展開辯論，LLM 與 AI 交錯推理。'
+        };
+      case 'day-vote':
+        return {
+          image: '/assets/scenes/dusk.svg',
+          title: '夕陽西下，裁決將至',
+          description: '所有人必須作出選擇，票數將決定命運。'
+        };
+      case 'game-over':
+        return {
+          image: '/assets/scenes/day.svg',
+          title: statusLabel,
+          description: '回顧事件時間線，檢視 AI 與真人的精彩互動。'
+        };
+      default:
+        return {
+          image: '/assets/scenes/day.svg',
+          title: '歡迎來到 AI Werewolf Showcase',
+          description: '重構自期末專案的狼人殺 AI，支援真人加入與 LLM 戲劇式發言。'
+        };
+    }
+  }, [snapshot.phase, statusLabel]);
+
   return (
-    <main>
-      <header style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 40, marginBottom: 12 }}>AI Werewolf Simulator</h1>
-        <p className="muted" style={{ fontSize: 18, maxWidth: 760 }}>
-          將期末專案的狼人殺 AI 模型重構為 Next.js Demo 網站，支援真人玩家參與與即時回合控制。
-          透過下方控制面板快速建立對局，並觀察 AI 在夜晚與白天的決策細節。
-        </p>
-      </header>
-
-      <GameConfigurator
-        config={config}
-        humanConfigs={humanConfigs}
-        onConfigChange={(partial) => {
-          setConfig((prev) => {
-            const next = { ...prev, ...partial };
-            setHumanConfigs((humans) =>
-              humans.map((human) => ({
-                ...human,
-                id: String(
-                  Math.max(1, Math.min(next.totalPlayers, Number.parseInt(human.id, 10) || 1))
-                )
-              }))
-            );
-            return next;
-          });
-        }}
-        onHumanChange={(humans) => {
-          setHumanConfigs(humans);
-        }}
-        onStart={handleStart}
-        disabled={autoRunning}
-      />
-
-      <section className="fade-card" style={{ marginTop: 24 }}>
-        <div className="controls" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 className="card-title" style={{ marginBottom: 6 }}>
-              對局控制
-            </h2>
-            <p className="muted" style={{ margin: 0 }}>
-              目前狀態：{statusLabel}
-            </p>
-          </div>
-          <div className="controls" style={{ justifyContent: 'flex-end' }}>
-            <button className="secondary-button" onClick={progressOnce} disabled={!isGameActive || autoRunning}>
-              前進一步
-            </button>
-            <button className="primary-button" onClick={progressAuto} disabled={!isGameActive || autoRunning}>
-              自動推進至下一決策
-            </button>
-          </div>
+    <main className="page">
+      <section className="scene-banner" style={{ backgroundImage: `url(${scene.image})` }}>
+        <div className="scene-overlay">
+          <p className="eyebrow">AI Werewolf Showcase</p>
+          <h1>{scene.title}</h1>
+          <p className="muted scene-description">{scene.description}</p>
         </div>
-        {snapshot.winner && (
-          <p style={{ marginTop: 16, fontWeight: 600, color: '#fef3c7' }}>
-            🎉 {statusLabel}
-          </p>
-        )}
-        {activeRequest && (
-          <ActionPanel request={activeRequest} onSubmit={handleSubmitAction} />
-        )}
       </section>
 
+      <div className="dashboard-grid">
+        <GameConfigurator
+          config={config}
+          humanConfigs={humanConfigs}
+          onConfigChange={(partial) => {
+            setConfig((prev) => {
+              const next = { ...prev, ...partial };
+              setHumanConfigs((humans) =>
+                humans.map((human) => ({
+                  ...human,
+                  id: String(
+                    Math.max(1, Math.min(next.totalPlayers, Number.parseInt(human.id, 10) || 1))
+                  )
+                }))
+              );
+              return next;
+            });
+          }}
+          onHumanChange={(humans) => {
+            setHumanConfigs(humans);
+          }}
+          onStart={handleStart}
+          disabled={autoRunning}
+        />
+
+        <section className="control-card">
+          <div className="control-header">
+            <div>
+              <p className="eyebrow">對局控制</p>
+              <h2>目前狀態：{statusLabel}</h2>
+            </div>
+            <div className="control-buttons">
+              <button className="button" onClick={progressOnce} disabled={!isGameActive || autoRunning}>
+                單步推進
+              </button>
+              <button
+                className="button button--primary"
+                onClick={progressAuto}
+                disabled={!isGameActive || autoRunning}
+              >
+                推進至下一決策
+              </button>
+            </div>
+          </div>
+          {snapshot.winner && (
+            <div className="victory-banner">🎉 {statusLabel}</div>
+          )}
+          {autoRunning && <p className="muted">AI 推理中，稍候產生下一步動作…</p>}
+          {activeRequest && <ActionPanel request={activeRequest} onSubmit={handleSubmitAction} />}
+        </section>
+      </div>
       {snapshot.players.length > 0 && <PlayerBoard players={snapshot.players} />}
 
       <EventLog logs={snapshot.logs} />

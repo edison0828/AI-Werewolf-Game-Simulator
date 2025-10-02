@@ -5,28 +5,36 @@ import type { HumanActionRequest, SubmitHumanActionPayload } from '@/lib/game/ty
 
 interface ActionPanelProps {
   request: HumanActionRequest;
-  onSubmit: (payload: SubmitHumanActionPayload) => void;
+  onSubmit: (payload: SubmitHumanActionPayload) => Promise<void> | void;
 }
 
 export function ActionPanel({ request, onSubmit }: ActionPanelProps) {
   const [selected, setSelected] = useState<string | undefined>();
   const [text, setText] = useState('');
-
+  const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     setSelected(undefined);
     setText('');
+    setSubmitting(false);
   }, [request.requestId]);
 
-  const handleSubmit = () => {
-    onSubmit({ requestId: request.requestId, chosenOptionId: selected, text });
-    setSelected(undefined);
-    setText('');
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit({ requestId: request.requestId, chosenOptionId: selected, text });
+      setSelected(undefined);
+      setText('');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const requiresChoice = request.options.length > 0;
   const requiresText = Boolean(request.extraInput);
 
   const isDisabled =
+    submitting ||
     (requiresChoice && !selected) ||
     (requiresText && !text.trim());
 
@@ -45,7 +53,7 @@ export function ActionPanel({ request, onSubmit }: ActionPanelProps) {
             <button
               key={option.id}
               type="button"
-              className={`secondary-button ${selected === option.id ? 'active' : ''}`}
+              className={selected === option.id ? 'active' : ''}
               onClick={() => setSelected(option.id)}
               disabled={option.disabled}
             >
@@ -64,8 +72,8 @@ export function ActionPanel({ request, onSubmit }: ActionPanelProps) {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="primary-button" disabled={isDisabled} onClick={handleSubmit}>
-          確認送出
+        <button className="button button--primary" disabled={isDisabled} onClick={handleSubmit}>
+          {submitting ? '送出中…' : '確認送出'}
         </button>
       </div>
     </section>

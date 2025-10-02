@@ -1,3 +1,4 @@
+import { createLLMService, type LLMService, type LLMSpeechContext } from '../llm/service';
 import { BASE_ROLES_CONFIG, DEFAULT_PLAYER_NAMES, ROLE_LIBRARY } from './config';
 import type {
   Alignment,
@@ -39,6 +40,7 @@ interface HunterPendingContext {
 
 export class GameEngine {
   private config: GameConfig;
+  private readonly llm: LLMService;
   private players: PlayerState[] = [];
   private phase: GamePhase = 'idle';
   private day = 0;
@@ -51,8 +53,9 @@ export class GameEngine {
   private voteContext?: VoteContext;
   private hunterContext?: HunterPendingContext;
 
-  constructor(config: GameConfig) {
+  constructor(config: GameConfig, llm: LLMService = createLLMService()) {
     this.config = config;
+    this.llm = llm;
   }
 
   public start(config?: Partial<GameConfig>): EngineSnapshot {
@@ -94,18 +97,18 @@ export class GameEngine {
     return this.snapshot();
   }
 
-  public progress(): EngineSnapshot {
+  public async progress(): Promise<EngineSnapshot> {
     if (this.pendingRequest) return this.snapshot();
 
     switch (this.phase) {
       case 'night':
-        this.handleNightPhase();
+        await this.handleNightPhase();
         break;
       case 'day-discussion':
-        this.handleDiscussionPhase();
+        await this.handleDiscussionPhase();
         break;
       case 'day-vote':
-        this.handleVotePhase();
+        await this.handleVotePhase();
         break;
       case 'game-over':
       default:
@@ -115,7 +118,7 @@ export class GameEngine {
     return this.snapshot();
   }
 
-  public submitHumanAction(payload: SubmitHumanActionPayload): EngineSnapshot {
+  public async submitHumanAction(payload: SubmitHumanActionPayload): Promise<EngineSnapshot> {
     if (!this.pendingRequest || this.pendingRequest.requestId !== payload.requestId) {
       return this.snapshot();
     }
@@ -225,7 +228,7 @@ export class GameEngine {
     return { index: 0, speakers };
   }
 
-  private handleNightPhase(): void {
+  private async handleNightPhase(): Promise<void> {
     this.nightContext = this.nightContext ?? this.createNightContext();
     const ctx = this.nightContext;
 
@@ -439,7 +442,7 @@ export class GameEngine {
     this.checkWinCondition();
   }
 
-  private handleDiscussionPhase(): void {
+  private async handleDiscussionPhase(): Promise<void> {
     this.discussionContext = this.discussionContext ?? this.createDiscussionContext();
     const ctx = this.discussionContext;
     const speakerId = ctx.speakers[ctx.index];
@@ -470,11 +473,25 @@ export class GameEngine {
       return;
     }
 
-    const speech = this.generateAISpeech(speaker);
-    this.appendLog(`🎤 ${speaker.displayName}：${speech}`, 'day-discussion');
+    const speechContext: LLMSpeechContext = {
+      day: this.day,
+      phase: 'day-discussion',
+      speaker,
+      alivePlayers: getAlivePlayers(this.players).map((p) => ({
+        id: p.id,
+        name: p.displayName,
+        alignment: p.id === speaker.id ? p.role.alignment : undefined,
+        isHuman: p.isHuman
+      })),
+      recentLogs: this.logs.slice(-8),
+      language: 'zh-Hant',
+      topic: 'discussion'
+    };
+    const speech = await this.llm.generateSpeech(speechContext);
+    this.appendLog(`🎭 ${speaker.displayName}：${speech}`, 'day-discussion');
   }
 
-  private handleVotePhase(): void {
+  private async handleVotePhase(): Promise<void> {
     if (this.hunterContext) {
       const hunter = this.players.find((p) => p.id === this.hunterContext.playerId);
       if (hunter) {
@@ -533,7 +550,26 @@ export class GameEngine {
 
     const target = this.chooseAIVoteTarget(voter, options.map((o) => o.id));
     ctx.votes[voter.id] = target.id;
-    this.appendLog(`${voter.displayName} 投給了 ${target.displayName}。`, 'day-vote');
+    const voteContext: LLMSpeechContext = {
+      day: this.day,
+      phase: 'day-vote',
+      topic: 'vote',
+      speaker: voter,
+      alivePlayers: getAlivePlayers(this.players).map((p) => ({
+        id: p.id,
+        name: p.displayName,
+        alignment: p.id === voter.id ? p.role.alignment : undefined,
+        isHuman: p.isHuman
+      })),
+      recentLogs: this.logs.slice(-8),
+      language: 'zh-Hant',
+      suggestedTargetId: target.id
+    };
+    const reasoning = await this.llm.generateSpeech(voteContext);
+    this.appendLog(`🗳️ ${voter.displayName} 投給了 ${target.displayName}。`, 'day-vote');
+    if (reasoning) {
+      this.appendLog(`🗣️ ${voter.displayName}：${reasoning}`, 'day-vote');
+    }
   }
 
   private resolveVotes(): void {
@@ -632,21 +668,6 @@ export class GameEngine {
     };
   }
 
-  private generateAISpeech(player: PlayerState): string {
-    switch (player.role.name) {
-      case 'Werewolf':
-        return '我覺得今晚要提防那些沉默的人，狼人一定藏在裡面。';
-      case 'Seer':
-        return '我昨晚觀察了一些跡象，建議大家關注行為可疑的玩家。';
-      case 'Witch':
-        return '昨晚的氣氛不太對勁，我會留意誰在散播恐慌。';
-      case 'Hunter':
-        return '大家別亂投票，我會保護真正的好人。';
-      default:
-        return '我還在觀察，先聽聽大家怎麼說。';
-    }
-  }
-
   private chooseAIVoteTarget(voter: PlayerState, candidates: string[]): PlayerState {
     // 簡單策略：狼人優先票投查驗結果為好人的玩家，好人則隨機
     if (voter.role.name === 'Werewolf') {
@@ -674,4 +695,4 @@ export class GameEngine {
   }
 }
 
-export const createEngine = (config: GameConfig) => new GameEngine(config);
+export const createEngine = (config: GameConfig, llm?: LLMService) => new GameEngine(config, llm);
