@@ -1,4 +1,4 @@
-import { createLLMService, type LLMService, type LLMSpeechContext } from '../llm/service';
+import { createLLMService, type LLMService, type LLMLanguage, type LLMSpeechContext } from '../llm/service';
 import { BASE_ROLES_CONFIG, DEFAULT_PLAYER_NAMES, ROLE_LIBRARY } from './config';
 import type {
   Alignment,
@@ -7,6 +7,7 @@ import type {
   GamePhase,
   HumanActionRequest,
   HumanActionType,
+  LogEntry,
   PlayerState,
   SubmitHumanActionPayload
 } from './types';
@@ -138,7 +139,7 @@ export class GameEngine {
             nightCtx.werewolfTarget = payload.chosenOptionId;
             nightCtx.step = 'seer';
           }
-          this.appendLog(`${player.displayName} 選擇在夜裡盯上 ${this.resolveName(payload.chosenOptionId)}。`, 'night');
+          this.appendLog(`${player.displayName} 選擇在夜裡盯上 ${this.resolveName(payload.chosenOptionId)}。`, 'night', ['private']);
         }
         break;
       case 'seer-check':
@@ -162,7 +163,7 @@ export class GameEngine {
             nightCtx.healedTarget = payload.chosenOptionId;
           }
           player.notes.healAvailable = false;
-          this.appendLog(`${player.displayName} 運用了解藥的力量拯救了一條性命。`, 'night');
+          this.appendLog(`${player.displayName} 運用了解藥的力量拯救了一條性命。`, 'night', ['private']);
         }
         break;
       case 'witch-poison':
@@ -171,7 +172,7 @@ export class GameEngine {
             nightCtx.poisonedTarget = payload.chosenOptionId;
           }
           player.notes.poisonAvailable = false;
-          this.appendLog(`${player.displayName} 在夜裡悄悄地下了毒。`, 'night');
+          this.appendLog(`${player.displayName} 在夜裡悄悄地下了毒。`, 'night', ['private']);
         }
         if (nightCtx) {
           nightCtx.step = 'resolution';
@@ -293,7 +294,7 @@ export class GameEngine {
       const target = getRandomAliveTarget(this.players, (p) => p.role.alignment !== 'Werewolf');
       if (target) {
         ctx.werewolfTarget = target.id;
-        this.appendLog(`狼群在暗夜中集結，似乎盯上了 ${target.displayName}。`, 'night');
+        this.appendLog(`狼群在暗夜中集結，似乎盯上了 ${target.displayName}。`, 'night', ['private']);
       }
     }
 
@@ -375,7 +376,7 @@ export class GameEngine {
     if (Math.random() > 0.5) {
       ctx.healedTarget = ctx.werewolfTarget;
       witch.notes.healAvailable = false;
-      this.appendLog(`${witch.displayName} 默默使用了解藥。`, 'night');
+      this.appendLog(`${witch.displayName} 默默使用了解藥。`, 'night', ['private']);
     }
   }
 
@@ -485,10 +486,11 @@ export class GameEngine {
       })),
       recentLogs: this.logs.slice(-8),
       language: 'zh-Hant',
-      topic: 'discussion'
+      topic: 'discussion',
+      roleIntel: this.describeRoleIntel(speaker, 'zh-Hant')
     };
     const speech = await this.llm.generateSpeech(speechContext);
-    this.appendLog(`🎭 ${speaker.displayName}：${speech}`, 'day-discussion');
+    this.appendLog(`🎭 ${speaker.displayName}：${speech}`, 'day-discussion', ['ai-speech']);
   }
 
   private async handleVotePhase(): Promise<void> {
@@ -563,12 +565,13 @@ export class GameEngine {
       })),
       recentLogs: this.logs.slice(-8),
       language: 'zh-Hant',
-      suggestedTargetId: target.id
+      suggestedTargetId: target.id,
+      roleIntel: this.describeRoleIntel(voter, 'zh-Hant')
     };
     const reasoning = await this.llm.generateSpeech(voteContext);
     this.appendLog(`🗳️ ${voter.displayName} 投給了 ${target.displayName}。`, 'day-vote');
     if (reasoning) {
-      this.appendLog(`🗣️ ${voter.displayName}：${reasoning}`, 'day-vote');
+      this.appendLog(`🗣️ ${voter.displayName}：${reasoning}`, 'day-vote', ['ai-speech']);
     }
   }
 
@@ -644,17 +647,16 @@ export class GameEngine {
     return this.players.find((p) => p.id === playerId)?.displayName ?? `玩家 ${playerId}`;
   }
 
-  private appendLog(message: string, phase: GamePhase, tags?: string[]): void {
-    this.logs = [
-      ...this.logs,
-      {
-        id: createId(),
-        day: this.day,
-        phase,
-        message,
-        tags
-      }
-    ];
+  private appendLog(message: string, phase: GamePhase, tags?: string[]): string {
+    const entry = {
+      id: createId(),
+      day: this.day,
+      phase,
+      message,
+      tags
+    } satisfies LogEntry;
+    this.logs = [...this.logs, entry];
+    return entry.id;
   }
 
   private snapshot(): EngineSnapshot {
@@ -666,6 +668,82 @@ export class GameEngine {
       pendingRequest: this.pendingRequest,
       winner: this.winner
     };
+  }
+
+  private describeRoleIntel(player: PlayerState, language: LLMLanguage): string[] {
+    const intel: string[] = [];
+    const alivePlayers = getAlivePlayers(this.players);
+    const isEnglish = language === 'en';
+
+    switch (player.role.name) {
+      case 'Werewolf': {
+        const allies = alivePlayers
+          .filter((p) => p.role.name === 'Werewolf' && p.id !== player.id)
+          .map((p) => p.displayName);
+        if (allies.length) {
+          intel.push(
+            isEnglish
+              ? `Packmates still alive: ${allies.join(', ')}. Coordinate to divert suspicion.`
+              : `狼人同伴：${allies.join('、')}，協助彼此掩護並分散村民注意力。`
+          );
+        } else {
+          intel.push(
+            isEnglish
+              ? 'You are the last werewolf alive. Blend in and steer the vote carefully.'
+              : '你是場上唯一存活的狼人，務必隱藏身份並誘導票型。'
+          );
+        }
+        break;
+      }
+      case 'Seer': {
+        const seerResults = player.notes.seerResults as Record<string, string> | undefined;
+        if (seerResults && Object.keys(seerResults).length) {
+          const lines = Object.entries(seerResults).map(([id, alignment]) => {
+            const result = alignment === '狼人' ? (isEnglish ? 'Werewolf' : '狼人') : alignment === '好人' ? (isEnglish ? 'Good' : '好人') : alignment;
+            return `${this.resolveName(id)}：${result}`;
+          });
+          intel.push(
+            isEnglish
+              ? `Identified alignments: ${lines.join('; ')}`
+              : `你已查驗的結果：${lines.join('；')}`
+          );
+        } else {
+          intel.push(
+            isEnglish
+              ? 'You have not shared any visions yet—decide when to reveal intel.'
+              : '你尚未揭露查驗資訊，請善用夜晚能力並在適當時機分享線索。'
+          );
+        }
+        break;
+      }
+      case 'Witch': {
+        const healAvailable = player.notes.healAvailable !== false;
+        const poisonAvailable = player.notes.poisonAvailable !== false;
+        intel.push(
+          isEnglish
+            ? `Elixir status: ${healAvailable ? 'available' : 'used'}.`
+            : `解藥狀態：${healAvailable ? '可用' : '已用完'}`
+        );
+        intel.push(
+          isEnglish
+            ? `Poison status: ${poisonAvailable ? 'available' : 'used'}.`
+            : `毒藥狀態：${poisonAvailable ? '可用' : '已用完'}`
+        );
+        break;
+      }
+      case 'Hunter': {
+        intel.push(
+          isEnglish
+            ? 'If eliminated (except by poison), you may take someone down with you—keep a target in mind.'
+            : '若你被淘汰（非女巫毒死），可以立刻帶走一名玩家，請預先想好目標。'
+        );
+        break;
+      }
+      default:
+        break;
+    }
+
+    return intel;
   }
 
   private chooseAIVoteTarget(voter: PlayerState, candidates: string[]): PlayerState {

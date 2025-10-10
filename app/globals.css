@@ -438,9 +438,46 @@ textarea {
   margin-bottom: 6px;
 }
 
+
+.log-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
 .log-message {
   color: rgba(226, 232, 240, 0.82);
   line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.log-message--streaming {
+  color: #f8fafc;
+}
+
+.log-message--streaming::after {
+  display: inline-block;
+  width: 4px;
+  height: 1em;
+  margin-left: 4px;
+  background: rgba(248, 250, 252, 0.7);
+  animation: caret-blink 0.8s step-end infinite;
+  vertical-align: bottom;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .status-pill {

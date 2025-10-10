@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_GAME_CONFIG } from '@/lib/game/config';
 import { createEngine, GameEngine } from '@/lib/game/engine';
 import type {
@@ -28,8 +28,17 @@ export default function HomePage() {
   const [humanConfigs, setHumanConfigs] = useState<HumanParticipantConfig[]>([]);
   const [snapshot, setSnapshot] = useState<EngineSnapshot>(INITIAL_SNAPSHOT);
   const [autoRunning, setAutoRunning] = useState(false);
+  const [spectatorReveal, setSpectatorReveal] = useState(false);
 
   const isGameActive = snapshot.phase !== 'idle' && snapshot.phase !== 'game-over';
+  const allAI = snapshot.players.length > 0 && snapshot.players.every((player) => !player.isHuman);
+  const showHiddenIntel = spectatorReveal && allAI;
+
+  useEffect(() => {
+    if (!allAI && spectatorReveal) {
+      setSpectatorReveal(false);
+    }
+  }, [allAI, spectatorReveal]);
 
   const handleStart = () => {
     const sanitizedHumans: HumanParticipantConfig[] = [];
@@ -170,29 +179,33 @@ export default function HomePage() {
               <p className="eyebrow">對局控制</p>
               <h2>目前狀態：{statusLabel}</h2>
             </div>
-            <div className="control-buttons">
-              <button className="button" onClick={progressOnce} disabled={!isGameActive || autoRunning}>
-                單步推進
-              </button>
-              <button
-                className="button button--primary"
-                onClick={progressAuto}
-                disabled={!isGameActive || autoRunning}
-              >
-                推進至下一決策
-              </button>
-            </div>
           </div>
           {snapshot.winner && (
             <div className="victory-banner">🎉 {statusLabel}</div>
           )}
           {autoRunning && <p className="muted">AI 推理中，稍候產生下一步動作…</p>}
+          <p className="muted small">使用下方「劇情時間線」區塊的按鈕即可推進劇情。</p>
           {activeRequest && <ActionPanel request={activeRequest} onSubmit={handleSubmitAction} />}
         </section>
       </div>
-      {snapshot.players.length > 0 && <PlayerBoard players={snapshot.players} />}
+      {snapshot.players.length > 0 && (
+        <PlayerBoard players={snapshot.players} revealAll={showHiddenIntel} />
+      )}
 
-      <EventLog logs={snapshot.logs} />
+      <EventLog
+        logs={snapshot.logs}
+        onProgressStep={progressOnce}
+        onProgressAuto={progressAuto}
+        disableStep={!isGameActive || autoRunning}
+        disableAuto={!isGameActive || autoRunning}
+        autoRunning={autoRunning}
+        showHiddenIntel={showHiddenIntel}
+        spectatorControls={
+          allAI
+            ? { available: true, active: spectatorReveal, onToggle: () => setSpectatorReveal((prev) => !prev) }
+            : undefined
+        }
+      />
     </main>
   );
 }

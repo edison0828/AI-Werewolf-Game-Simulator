@@ -5,6 +5,7 @@ import type { PlayerState } from '@/lib/game/types';
 
 interface PlayerBoardProps {
   players: PlayerState[];
+  revealAll?: boolean;
 }
 
 const ROLE_AVATARS: Record<string, string> = {
@@ -15,8 +16,10 @@ const ROLE_AVATARS: Record<string, string> = {
   Villager: '/assets/avatars/villager.svg'
 };
 
-export function PlayerBoard({ players }: PlayerBoardProps) {
+export function PlayerBoard({ players, revealAll = false }: PlayerBoardProps) {
   const hasHuman = players.some((player) => player.isHuman);
+  const revealEverything = revealAll || !hasHuman;
+  const hideSensitive = hasHuman && !revealEverything;
 
   return (
     <section className="player-section" aria-labelledby="player-title">
@@ -25,11 +28,13 @@ export function PlayerBoard({ players }: PlayerBoardProps) {
           <p className="eyebrow">角色陣列</p>
           <h2 id="player-title">桌上角色一覽</h2>
         </div>
-        <span className="pill pill--info">{hasHuman ? '玩家視角 · 隱藏陣營資訊' : '觀察模式 · 顯示所有角色'}</span>
+        <span className="pill pill--info">
+          {hideSensitive ? '玩家視角 · 隱藏陣營資訊' : '觀察模式 · 顯示所有角色'}
+        </span>
       </div>
       <div className="player-grid">
         {players.map((player) => {
-          const hidden = hasHuman && !player.isHuman;
+          const hidden = hideSensitive && !player.isHuman;
           const avatarSrc = hidden
             ? '/assets/avatars/mystery.svg'
             : player.isHuman
